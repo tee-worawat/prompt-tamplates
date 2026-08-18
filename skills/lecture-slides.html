@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Week 7 — Evaluating AI Agents</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f4f6fa; --panel: #fff; --panel-2: #eef2f8; --line: #d4dce8;
+      --ink: #1a2332; --muted: #5a677a;
+      --teal: #0d9488; --teal-bg: #ecfdf5; --teal-border: #99f6e4;
+      --gold: #b45309; --gold-bg: #fef3c7;
+      --coral: #dc2626; --coral-bg: #fee2e2;
+      --blue: #2563eb; --blue-bg: #dbeafe;
+      --ok: #15803d; --code-bg: #f8fafc;
+      --zoom: 1.2; /* presenter scale — also adjustable via footer / + − 0 */
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: var(--bg); color: var(--ink); font-family: "Source Sans 3", system-ui, sans-serif; overflow: hidden; }
+    .viewport {
+      width: 100vw;
+      height: 100vh;
+      overflow: auto;
+      overflow-x: hidden;
+    }
+    .deck {
+      transform: scale(var(--zoom));
+      transform-origin: top center;
+      width: calc(100vw / var(--zoom));
+      min-height: calc(100vh / var(--zoom));
+    }
+    .slide {
+      display: none;
+      width: calc(100vw / var(--zoom));
+      min-height: calc(100vh / var(--zoom));
+      padding: 2.6vh 3.2vw 6vh;
+      flex-direction: column;
+      gap: 1vh;
+      overflow: hidden;
+    }
+    .slide.active { display: flex; }
+    .kicker { font-size: 1.55vh; letter-spacing: .14em; text-transform: uppercase; color: var(--teal); font-weight: 700; }
+    h1 { font-size: 4.2vh; font-weight: 700; line-height: 1.08; letter-spacing: -.02em; }
+    h1 em, .accent { color: var(--teal); font-style: normal; font-weight: 700; }
+    .sub { font-size: 1.85vh; color: var(--muted); line-height: 1.32; }
+    .concept {
+      background: var(--teal-bg);
+      border: 1px solid var(--teal-border);
+      border-left: .35vw solid var(--teal);
+      border-radius: .6vh;
+      padding: .9vh 1vw;
+      flex-shrink: 0;
+    }
+    .concept h2 { font-size: 1.55vh; text-transform: uppercase; letter-spacing: .08em; color: var(--teal); margin-bottom: .4vh; font-weight: 700; }
+    .concept p, .concept li { font-size: 1.75vh; color: #334155; line-height: 1.35; }
+    .concept ul { padding-left: 1.15em; margin: 0; }
+    .fill { flex: 1; min-height: 0; display: flex; gap: 1vw; }
+    .col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .85vh; }
+    .card {
+      background: var(--panel); border: 1px solid var(--line); border-radius: .8vh;
+      padding: 1.05vh 1vw; box-shadow: 0 1px 3px rgba(26,35,50,.05); min-width: 0;
+    }
+    .card h3 { font-size: 1.85vh; margin-bottom: .4vh; }
+    .card p, .card li { font-size: 1.72vh; color: var(--muted); line-height: 1.32; }
+    .card ul { padding-left: 1.15em; margin-top: .3vh; }
+    .tag {
+      font-family: "IBM Plex Mono", monospace; font-size: 1.45vh;
+      padding: .15vh .45vw; border-radius: .3vh;
+      background: var(--panel-2); color: var(--blue); border: 1px solid var(--line);
+    }
+    .nb { font-family: "IBM Plex Mono", monospace; font-size: 1.45vh; color: var(--gold); }
+    pre.code {
+      font-family: "IBM Plex Mono", monospace; font-size: 1.42vh; line-height: 1.38;
+      background: var(--code-bg); border: 1px solid var(--line); border-radius: .55vh;
+      padding: .85vh .85vw; color: #334155; white-space: pre-wrap; overflow: hidden;
+    }
+    pre.code .kw { color: var(--blue); } pre.code .fn { color: var(--teal); }
+    pre.code .st { color: var(--coral); } pre.code .cm { color: #94a3b8; }
+    .ex {
+      background: var(--gold-bg); border: 1px solid #fcd34d; border-radius: .55vh;
+      padding: .75vh .85vw; font-size: 1.68vh; color: #78350f; line-height: 1.32;
+    }
+    .ex b { font-weight: 600; }
+    .flow { display: flex; align-items: stretch; gap: .45vw; }
+    .node {
+      background: var(--panel); border: 1px solid var(--line); border-radius: .65vh;
+      padding: .85vh .7vw; text-align: center; font-size: 1.68vh; font-weight: 600;
+      line-height: 1.22; flex: 1; min-width: 0;
+    }
+    .node small { display: block; font-weight: 400; color: var(--muted); font-size: 1.42vh; margin-top: .25vh; }
+    .node.teal { background: var(--teal-bg); border-color: var(--teal-border); color: #115e59; }
+    .node.gold { background: var(--gold-bg); border-color: #fcd34d; color: #78350f; }
+    .node.coral { background: var(--coral-bg); border-color: #fca5a5; color: #991b1b; }
+    .node.blue { background: var(--blue-bg); border-color: #93c5fd; color: #1e40af; }
+    .arr { color: var(--muted); font-size: 2.1vh; align-self: center; flex: 0 0 auto; }
+    .tree {
+      background: var(--panel); border: 1px dashed var(--line); border-radius: .75vh;
+      padding: .85vh .8vw; display: flex; flex-direction: column; gap: .5vh; flex: 1; min-height: 0;
+    }
+    .tree .lbl { font-family: "IBM Plex Mono", monospace; font-size: 1.42vh; color: var(--gold); }
+    .nest { margin-left: 1vw; display: flex; flex-direction: column; gap: .4vh; }
+    .chip { background: var(--panel-2); border-radius: .4vh; padding: .5vh .65vw; font-size: 1.55vh; border: 1px solid var(--line); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: .85vw; flex: 1; min-height: 0; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .75vw; flex: 1; min-height: 0; }
+    .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: .65vw; flex: 1; min-height: 0; }
+    .vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: .85vw; align-items: stretch; flex: 1; min-height: 0; }
+    .vs-mid { align-self: center; font-size: 1.5vh; color: var(--gold); font-weight: 700; }
+    .fail {
+      display: grid; grid-template-columns: 10vw 1fr 7.5vw; gap: .55vw; align-items: center;
+      background: var(--panel); border-left: .3vw solid var(--coral); border-radius: .45vh;
+      padding: .65vh .8vw; font-size: 1.62vh;
+    }
+    .fail b { color: var(--ink); } .fail span { color: var(--muted); }
+    .gold-l { border-left-color: var(--gold); } .blue-l { border-left-color: var(--blue); } .ok-l { border-left-color: var(--ok); }
+    .pill { font-size: 1.35vh; font-weight: 600; padding: .2vh .5vw; border-radius: 999px; background: var(--panel-2); }
+    .metric-yes { color: var(--ok); font-size: 1.55vh; font-weight: 600; }
+    .metric-no { color: var(--coral); font-size: 1.5vh; }
+    .week-pill {
+      display: inline-block; font-size: 1.5vh; padding: .4vh .75vw; border-radius: .5vh;
+      background: var(--panel); border: 1px solid var(--line); margin-right: .4vw;
+    }
+    .week-pill.on { background: var(--teal-bg); border-color: var(--teal-border); font-weight: 600; color: #115e59; }
+    .ex-line { font-size: 1.65vh; color: var(--muted); line-height: 1.32; margin-top: .25vh; }
+    .samples {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 1vw;
+      flex-shrink: 0;
+      margin-bottom: .85vh;
+      padding: 1.1vh 1.15vw;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 1vh;
+      box-shadow: 0 2px 10px rgba(26,35,50,.06);
+    }
+    .samples-title {
+      grid-column: 1 / -1;
+      font-size: 1.75vh;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: .04em;
+      padding-bottom: .35vh;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: .15vh;
+    }
+    .sample-lab {
+      background: var(--teal-bg);
+      border: 1px solid var(--teal-border);
+      border-left: .4vw solid var(--teal);
+      border-radius: .75vh;
+      padding: 1vh 1vw;
+    }
+    .sample-rw {
+      background: linear-gradient(160deg, #fffbeb 0%, #fef3c7 100%);
+      border: 2px solid #f59e0b;
+      border-left: .45vw solid #d97706;
+      border-radius: .75vh;
+      padding: 1.15vh 1.1vw;
+      box-shadow: 0 3px 12px rgba(217, 119, 6, .12);
+    }
+    .box-title {
+      font-size: 1.8vh;
+      font-weight: 700;
+      margin-bottom: .55vh;
+      display: block;
+    }
+    .sample-lab .box-title { color: #115e59; }
+    .sample-rw .box-title { color: #92400e; font-size: 1.95vh; }
+    .sample-lab .ex-line { color: #334155; }
+    .sample-rw .ex-line { color: #451a03; font-size: 1.72vh; line-height: 1.34; }
+    .rw-block {
+      background: linear-gradient(160deg, #fffbeb 0%, #fef3c7 100%);
+      border: 2px solid #f59e0b;
+      border-left: .4vw solid #d97706;
+      border-radius: .65vh;
+      padding: .85vh .85vw;
+      margin-top: .55vh;
+      box-shadow: 0 2px 8px rgba(217, 119, 6, .1);
+    }
+    .rw-block .box-title { color: #92400e; font-size: 1.75vh; margin-bottom: .35vh; }
+    .rw-block .ex-line { color: #451a03; font-size: 1.62vh; }
+    .lab-block {
+      background: var(--teal-bg);
+      border: 1px solid var(--teal-border);
+      border-left: .35vw solid var(--teal);
+      border-radius: .55vh;
+      padding: .65vh .75vw;
+      margin-top: .45vh;
+    }
+    .lab-block .box-title { color: #115e59; font-size: 1.65vh; margin-bottom: .3vh; }
+    .cmp {
+      display: grid; grid-template-columns: 6.5vw 1fr 1fr; gap: .35vh .5vw;
+      font-size: 1.58vh; line-height: 1.28; margin-top: .35vh;
+    }
+    .cmp-h { font-weight: 700; color: var(--ink); }
+    .cmp-t { color: #1d4ed8; }
+    .cmp-p { color: #0f766e; }
+    .cmp-lbl { color: var(--muted); font-weight: 600; }
+    .fit-steps { font-size: 1.62vh; color: #334155; line-height: 1.34; padding-left: 1.1em; margin-top: .35vh; }
+    .fit-steps li { margin-bottom: .2vh; }
+    .flow.compact .node { font-size: 1.48vh; padding: .65vh .45vw; }
+    .flow.compact .node small { font-size: 1.28vh; }
+    .flow.compact .arr { font-size: 1.35vh; }
+    figure.diag {
+      margin: 0;
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: .8vh;
+      padding: .55vh .55vw;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(26,35,50,.05);
+      cursor: zoom-in;
+    }
+    figure.diag:hover {
+      border-color: var(--teal);
+      box-shadow: 0 2px 10px rgba(13,148,136,.14);
+    }
+    figure.diag img {
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+      object-fit: contain;
+      object-position: center;
+      pointer-events: none;
+    }
+    figure.diag figcaption {
+      font-size: 1.38vh;
+      color: var(--muted);
+      text-align: center;
+      margin-top: .3vh;
+      flex-shrink: 0;
+    }
+    figure.diag figcaption::after {
+      content: " · click to enlarge";
+      color: #94a3b8;
+      font-weight: 500;
+    }
+    .diag-stack { display: flex; flex-direction: column; gap: .65vh; flex: 1; min-height: 0; }
+    .diag-stack figure.diag { flex: 1; }
+    .lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      background: rgba(15, 23, 42, .78);
+      align-items: center;
+      justify-content: center;
+      padding: 4vh 4vw 8vh;
+      cursor: zoom-out;
+    }
+    .lightbox.open { display: flex; }
+    .lightbox img {
+      max-width: 94vw;
+      max-height: 86vh;
+      object-fit: contain;
+      background: #fff;
+      border-radius: 1vh;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+      cursor: default;
+    }
+    .lightbox-cap {
+      position: absolute;
+      bottom: 6.2vh;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #e2e8f0;
+      font-size: 1.55vh;
+      white-space: nowrap;
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 1.6vh;
+      right: 2vw;
+      width: 4.2vh;
+      height: 4.2vh;
+      border: none;
+      border-radius: .5vh;
+      background: rgba(255,255,255,.12);
+      color: #fff;
+      font-size: 2.4vh;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .lightbox-close:hover { background: rgba(255,255,255,.22); }
+    .ex.demo {
+      flex-shrink: 0;
+      font-size: 1.78vh;
+      padding: .9vh 1vw;
+      border-width: 2px;
+    }
+    footer.bar {
+      position: fixed; bottom: 0; left: 0; right: 0; height: 4.8vh;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 3.2vw; background: rgba(255,255,255,.96); border-top: 1px solid var(--line);
+      font-size: 1.45vh; color: var(--muted); z-index: 5;
+    }
+    .bar-left, .bar-right { display: flex; align-items: center; gap: 1vw; }
+    .zoom-ctrl {
+      display: flex; align-items: center; gap: .35vw;
+      background: var(--panel-2); border: 1px solid var(--line);
+      border-radius: .5vh; padding: .25vh .35vw;
+    }
+    .zoom-ctrl button {
+      font-family: inherit; font-size: 1.6vh; font-weight: 700;
+      width: 2.8vh; height: 2.8vh; border: none; border-radius: .35vh;
+      background: var(--panel); color: var(--ink); cursor: pointer;
+      line-height: 1;
+    }
+    .zoom-ctrl button:hover { background: var(--teal-bg); color: var(--teal); }
+    .zoom-ctrl span { font-size: 1.35vh; min-width: 4.5em; text-align: center; font-weight: 600; color: var(--ink); }
+    .zoom-hint { font-size: 1.25vh; color: #94a3b8; }
+    .dots { display: flex; gap: .4vw; }
+    .dot { width: .75vh; height: .75vh; border-radius: 50%; background: #cbd5e1; cursor: pointer; }
+    .dot.on { background: var(--teal); }
+    .progress { position: fixed; top: 0; left: 0; height: .35vh; background: var(--teal); z-index: 6; }
+  </style>
+</head>
+<body>
+  <div class="progress" id="progress"></div>
+  <div class="viewport" id="viewport">
+  <div class="deck" id="deck">
+
+    <!-- 0 Title -->
+    <section class="slide active" data-title="Title">
+      <div class="kicker">Week 7 · SUT AI SW Dev</div>
+      <h1>Evaluating <em>AI agents</em></h1>
+      <div class="concept">
+        <h2>What this week is about</h2>
+        <p>An agent is a <b>loop</b> (router + tools + memory), not one LLM call. We learn to <b>decompose</b> failures, <b>trace</b> each hop in Phoenix, and <b>score</b> router / skills / path — then rerun the same questions after a prompt change as a named experiment.</p>
+      </div>
+      <div class="fill">
+        <div class="col">
+          <div class="ex"><b>Running example:</b> sales assistant over <span class="tag">Store_Sales_Price_Elasticity_Promotions_Data.parquet</span></div>
+          <figure class="diag" style="flex:1">
+            <img src="L3/images/agent.png" alt="User → Router → lookup, analyze, and visualization tools" />
+            <figcaption>From L3.ipynb — router + three tools</figcaption>
+          </figure>
+          <div class="card">
+            <h3>Where we came from</h3>
+            <p><b>Week 4</b> — was the <em>answer</em> grounded? (RAG triad) · <b>Week 5</b> — did the pipeline <em>survive</em>? (Temporal) · <b>Week 7</b> — did the <em>agent</em> choose and execute well?</p>
+          </div>
+        </div>
+        <div class="col" style="flex:.9">
+          <div class="card" style="flex:1">
+            <h3>End-to-end demo (L3)</h3>
+            <div class="ex" style="margin:.4vh 0">Show me the code for graph of sales by store in Nov 2021, and tell me what trends you see.</div>
+            <p>Path: lookup → visualization and/or analyze → final answer</p>
+          </div>
+          <p class="sub">← → navigate · <span class="tag">week_7/lecture-slides.html</span></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 1 Overview -->
+    <section class="slide" data-title="Week overview">
+      <div class="kicker">Overview</div>
+      <h1>Agent eval + <em>orchestration recap</em></h1>
+      <div class="concept">
+        <h2>Two questions, two systems</h2>
+        <p><b>Temporal (W5)</b> — orchestration: did the pipeline <em>survive</em> (order, retries, timeouts)? <b>Phoenix (W7)</b> — intelligence eval: did the agent <em>choose and execute</em> well (tool, SQL, path)? Temporal does not know if SQL was right. Phoenix does not retry a dead worker. This week builds the eval layer; it plugs into W5 <span class="tag">activities</span>, not the workflow.</p>
+      </div>
+      <div style="margin:.2vh 0">
+        <span class="week-pill">W1–2 Pydantic</span>
+        <span class="week-pill">W3 Agentic RAG</span>
+        <span class="week-pill">W4 RAG eval</span>
+        <span class="week-pill">W5 Temporal</span>
+        <span class="week-pill on">W7 Agent eval ← you are here</span>
+      </div>
+      <div class="fill">
+        <div class="col" style="flex:1.08">
+          <div class="card" style="border-color:#93c5fd;background:var(--blue-bg)">
+            <h3>W5 Temporal pipeline (recap)</h3>
+            <div class="flow compact" style="margin:.45vh 0">
+              <div class="node"><span class="tag">validate</span><small>schema check</small></div><div class="arr">→</div>
+              <div class="node"><span class="tag">retrieve</span><small>RAG / DB</small></div><div class="arr">→</div>
+              <div class="node"><span class="tag">draft</span><small>LLM answer</small></div><div class="arr">→</div>
+              <div class="node gold"><span class="tag">critique</span><small>judge gate</small></div><div class="arr">→</div>
+              <div class="node teal"><span class="tag">report</span><small>final out</small></div>
+            </div>
+            <p><b>Workflow</b> = deterministic schedule only · <b>Activities</b> = where LLM / DuckDB / HTTP run · Event History = retries &amp; crashes</p>
+          </div>
+          <div class="grid-3" style="flex:1">
+            <div class="card" style="border-color:var(--teal-border);padding:.85vh .85vw">
+              <h3 style="font-size:1.72vh">① Router</h3>
+              <p style="font-size:1.58vh">Right tool for the question? · L7 Tool Calling Eval</p>
+            </div>
+            <div class="card" style="border-color:#fcd34d;padding:.85vh .85vw">
+              <h3 style="font-size:1.72vh">② Skill</h3>
+              <p style="font-size:1.58vh">SQL / code / prose OK? · L7 SQL · Clarity · Runnable</p>
+            </div>
+            <div class="card" style="border-color:#fca5a5;padding:.85vh .85vw">
+              <h3 style="font-size:1.72vh">③ Trajectory</h3>
+              <p style="font-size:1.58vh">Fewest hops? · L9 Convergence Eval</p>
+            </div>
+          </div>
+          <div class="flow compact" style="flex-shrink:0">
+            <div class="node"><span class="nb">L3</span><small>build</small></div><div class="arr">→</div>
+            <div class="node teal"><span class="nb">L5</span><small>trace</small></div><div class="arr">→</div>
+            <div class="node gold"><span class="nb">L7</span><small>eval</small></div><div class="arr">→</div>
+            <div class="node coral"><span class="nb">L9</span><small>path</small></div><div class="arr">→</div>
+            <div class="node blue"><span class="nb">L11</span><small>v1/v2</small></div>
+          </div>
+        </div>
+        <div class="col" style="flex:.92">
+          <div class="card">
+            <h3>Orchestration ≠ intelligence eval</h3>
+            <div class="cmp">
+              <span class="cmp-lbl"></span><span class="cmp-h cmp-t">Temporal</span><span class="cmp-h cmp-p">Phoenix</span>
+              <span class="cmp-lbl">Unit</span><span>workflow + activities</span><span>spans (AGENT / TOOL / LLM)</span>
+              <span class="cmp-lbl">Answers</span><span>order · retries · timeouts</span><span>tool choice · SQL · judge labels</span>
+              <span class="cmp-lbl">Sees</span><span>activity succeeded after 3 retries</span><span>wrong doc retrieved all 3 times</span>
+              <span class="cmp-lbl">Join</span><span style="grid-column:2/-1"><span class="tag">workflow_id</span> stamped on every activity span — same run in Temporal UI &amp; Phoenix</span>
+            </div>
+          </div>
+          <div class="card" style="border-color:var(--teal-border);background:var(--teal-bg)">
+            <h3>How eval fits into orchestration</h3>
+            <ol class="fit-steps">
+              <li><b>Worker startup:</b> <span class="tag">register_tracer</span> once (same as L5 notebook)</li>
+              <li><b>Inside each activity:</b> OpenInference + <span class="tag">@tracer.tool</span> — stamp <span class="tag">activity.info().workflow_id</span></li>
+              <li><b>Offline jobs (L7/L11/L13):</b> SpanQuery → <span class="tag">llm_classify</span> / experiments — <b>never</b> inside the workflow</li>
+              <li><b>Gate (optional):</b> <span class="tag">critique_draft</span> blocks bad drafts in Temporal; Phoenix scores the same spans later</li>
+            </ol>
+          </div>
+          <div class="rw-block" style="margin-top:0">
+            <span class="box-title">Real world</span>
+            <p class="ex-line"><b>Checkout pipeline:</b> Temporal shows payment activity retried and succeeded; Phoenix shows agent charged the wrong card every time — you need both dashboards before you ship a prompt change.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2 Arc -->
+    <section class="slide" data-title="Course arc">
+      <div class="kicker">Course arc · lab progression</div>
+      <h1>Build → trace → judge → <em>experiment</em></h1>
+      <div class="concept">
+        <h2>Why this order?</h2>
+        <ul>
+          <li><b>L3</b> — you cannot evaluate what you cannot name (tools + <span class="tag">run_agent</span> loop)</li>
+          <li><b>L5</b> — evals need examples; examples come from traces</li>
+          <li><b>L7–L11</b> — forensic span evals → path economics → regression suite</li>
+        </ul>
+      </div>
+      <div class="grid-2" style="flex:1">
+        <div class="card">
+          <h3>LLM-as-a-judge (this week)</h3>
+          <p>A <b>second LLM</b> scores the agent's output with <b>rails</b> (<span class="tag">correct</span>/<span class="tag">incorrect</span>, <span class="tag">clear</span>/<span class="tag">unclear</span>). Used offline in labs; in prod can also <b>gate</b> bad drafts (Week 5 <span class="tag">critique_draft</span>).</p>
+          <p style="margin-top:.4vh"><b>Not</b> the model that talks to the user — the <em>grader</em>.</p>
+        </div>
+        <div class="card">
+          <h3>Code eval where you can</h3>
+          <p><span class="tag">code_is_runnable</span> — does chart Python exec? · <span class="tag">evaluate_sql_result</span> — do digits match gold? Ground truth beats judge when Python can check.</p>
+        </div>
+        <div class="card">
+          <h3>Experiment (L11)</h3>
+          <p><b>Dataset</b> + <b>task</b> + <b>evaluators</b>. Change one prompt → new <span class="tag">experiment_name</span> → compare rows in Phoenix.</p>
+        </div>
+        <div class="card">
+          <h3>Offline-first teaching</h3>
+          <p>No API key? <span class="tag">mock_llm.py</span> keeps the same graph — teaches <em>evaluation structure</em>, not model quirks. Set <span class="tag">USE_MOCK_AI=true</span>.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 Infra -->
+    <section class="slide" data-title="Infrastructure">
+      <div class="kicker">Shared infrastructure</div>
+      <h1>One agent graph · <em>two backends</em> · Phoenix per lab</h1>
+      <div class="concept">
+        <h2>Concept: adapter layer</h2>
+        <p>Gemini exposes an <b>OpenAI-compatible</b> API so we keep Arize lab patterns (<span class="tag">chat.completions.create(tools=...)</span>). <span class="tag">phoenix_compat.py</span> restores Phoenix 7 API names. Same instrumentation whether live or mock.</p>
+      </div>
+      <div class="fill">
+        <div class="col">
+          <pre class="code"><span class="kw">from</span> gemini_helpers <span class="kw">import</span> (
+    get_llm_client,      <span class="cm"># agent LLM</span>
+    get_eval_model,      <span class="cm"># judge LLM</span>
+    register_tracer,     <span class="cm"># Phoenix OTel</span>
+)
+client = get_llm_client()     <span class="cm"># → Gemini or MockOpenAIClient</span>
+eval_model = get_eval_model() <span class="cm"># → GeminiEvalModel or MockEvalModel</span></pre>
+          <div class="card">
+            <h3>Key files</h3>
+            <p><span class="tag">gemini_helpers.py</span> · <span class="tag">mock_llm.py</span> · <span class="tag">phoenix_compat.py</span> · <span class="tag">VisualizationConfig</span> (Pydantic chart contract)</p>
+          </div>
+        </div>
+        <div class="col">
+          <div class="card">
+            <h3>Phoenix project per notebook</h3>
+            <ul>
+              <li><span class="tag">tracing-agent</span> — L5 observe</li>
+              <li><span class="tag">evaluating-agent</span> — L7 span evals</li>
+              <li><span class="tag">evaluating-agent-path</span> — L9 trajectory</li>
+            </ul>
+            <p>UI <span class="tag">:6006</span> · traces → <span class="tag">/v1/traces</span></p>
+          </div>
+          <div class="card">
+            <h3>Setup</h3>
+            <p><span class="tag">pip install -r week_7/requirements.txt</span></p>
+            <p>Open <span class="nb">week_7/L3/L3.ipynb</span> from its folder so <span class="tag">./data/*.parquet</span> resolves.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 L0–L2 -->
+    <section class="slide" data-title="L0–L2 Decompose">
+      <div class="kicker">Lessons 0–2 · Decompose agents</div>
+      <h1>Ask: <em>which unit of work failed?</em></h1>
+      <div class="concept">
+        <h2>Concept: agent ≠ model</h2>
+        <p>Thumbs-up on the final answer hides failures in the <b>middle</b>. Split the agent into three eval targets — each with its own score and its own fix.</p>
+      </div>
+      <div class="grid-3" style="flex:1">
+        <div class="card" style="border-top:.35vh solid var(--teal)">
+          <h3>① Router eval</h3>
+          <p><b>Question:</b> did we pick the right tool for the job?</p>
+          <div class="lab-block">
+            <span class="box-title">Our lab</span>
+            <p class="ex-line">User: <em>"Create a bar chart of sales by store"</em> → agent calls <span class="tag">analyze_sales_data</span> instead of <span class="tag">generate_visualization</span>. Prose about charts, no chart code.</p>
+          </div>
+          <div class="rw-block">
+            <span class="box-title">Real world</span>
+            <p class="ex-line"><b>Bank support bot:</b> "Dispute this charge" → agent searches FAQ instead of opening a <span class="tag">create_dispute_case</span> ticket. Answer sounds helpful; wrong workflow.</p>
+            <p class="ex-line"><b>Dev copilot:</b> "Fix the failing test" → agent edits docs instead of calling <span class="tag">run_tests</span>.</p>
+          </div>
+        </div>
+        <div class="card" style="border-top:.35vh solid var(--gold)">
+          <h3>② Skill eval</h3>
+          <p><b>Question:</b> once the tool was chosen, did that step actually work?</p>
+          <div class="lab-block">
+            <span class="box-title">Our lab</span>
+            <p class="ex-line">Router correctly calls <span class="tag">lookup_sales_data</span>, but SQL filters <b>store 99</b> when the user asked for <b>store 1320</b>. Or chart code throws on <span class="tag">exec</span>.</p>
+          </div>
+          <div class="rw-block">
+            <span class="box-title">Real world</span>
+            <p class="ex-line"><b>HR assistant:</b> right tool (<span class="tag">query_payroll_db</span>), but SQL uses last month instead of the pay period in the question.</p>
+            <p class="ex-line"><b>Ops agent:</b> calls <span class="tag">restart_service</span> on <b>prod</b> when user meant staging — right tool family, wrong args.</p>
+          </div>
+        </div>
+        <div class="card" style="border-top:.35vh solid var(--coral)">
+          <h3>③ Trajectory eval</h3>
+          <p><b>Question:</b> did we take a short path, or wander?</p>
+          <div class="lab-block">
+            <span class="box-title">Our lab</span>
+            <p class="ex-line">Same intent: <em>"mean basket size"</em> vs <em>"avg qty per transaction"</em> — one phrasing takes 6 messages, another 12. Both may look "correct."</p>
+          </div>
+          <div class="rw-block">
+            <span class="box-title">Real world</span>
+            <p class="ex-line"><b>Travel agent:</b> books a flight in 3 tool calls for one user, 9 calls for another asking the same thing differently — extra cost + latency.</p>
+            <p class="ex-line"><b>SRE runbook bot:</b> loops lookup → analyze → lookup again before escalating — should have paged on call 2.</p>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="flex-shrink:0">
+        <h3>Debug discipline — match symptom to eval</h3>
+        <p style="display:inline"><b>Wrong tool</b> → router · <b>Wrong SQL / broken code / bad prose</b> → skill · <b>Too many hops, same answer</b> → trajectory. Chart wrong? <b>Don't rewrite SYSTEM_PROMPT first</b> — find which eval would fail.</p>
+      </div>
+    </section>
+
+    <!-- 5 L3 -->
+    <section class="slide" data-title="L3 Build">
+      <div class="kicker">Lesson 3 · L3/L3.ipynb · Build the agent</div>
+      <h1>The <em>router</em> is a while-loop around tools</h1>
+      <div class="concept">
+        <h2>Concept: function calling = agent router</h2>
+        <p>Each turn the LLM returns either <b>tool_calls</b> (keep looping) or <b>final content</b> (stop). <span class="tag">handle_tool_calls</span> dispatches name + JSON args to Python. Multi-hop questions need multiple iterations in one <span class="tag">run_agent</span> call.</p>
+      </div>
+      <div class="samples">
+        <div class="samples-title">Practical examples</div>
+        <div class="sample-lab">
+          <span class="box-title">Try in L3.ipynb</span>
+          <p class="ex-line"><b>Multi-hop:</b> <em>"Graph of sales by store in Nov 2021 + what trends you see"</em> → expect <span class="tag">lookup</span> → <span class="tag">generate_visualization</span> → <span class="tag">analyze</span> → final text. Count while-loop iterations.</p>
+          <p class="ex-line"><b>Break it:</b> add tool name to <span class="tag">tools[]</span> only → KeyError in <span class="tag">handle_tool_calls</span>.</p>
+        </div>
+        <div class="sample-rw">
+          <span class="box-title">Real world</span>
+          <p class="ex-line"><b>Sales copilot:</b> user asks for chart + summary → agent must chain <span class="tag">query_db</span> → <span class="tag">render_chart</span> → <span class="tag">summarize</span> — same loop pattern as our three tools.</p>
+          <p class="ex-line"><b>IT helpdesk:</b> "Reset password and email confirmation" → two tool calls in one session, not one bloated LLM guess.</p>
+        </div>
+      </div>
+      <div class="fill">
+        <div class="col">
+          <pre class="code"><span class="kw">while</span> <span class="kw">True</span>:
+    response = client.chat.completions.create(
+        model=MODEL, messages=messages, tools=tools)
+    <span class="kw">if</span> response.choices[0].message.tool_calls:
+        messages = handle_tool_calls(tool_calls, messages)
+    <span class="kw">else</span>:
+        <span class="kw">return</span> response.choices[0].message.content</pre>
+        </div>
+        <figure class="diag">
+          <img src="L3/images/router.png" alt="Router with three tools and internal steps" />
+          <figcaption>From L3.ipynb — router + tool pipelines</figcaption>
+        </figure>
+      </div>
+      <div class="ex demo"><b>Demo in notebook:</b> lookup_sales_data("Show me all the sales for store 1320 on November 1st, 2021")</div>
+    </section>
+
+    <!-- 6 L4–L5 -->
+    <section class="slide" data-title="L4–L5 Tracing">
+      <div class="kicker">Lessons 4–5 · L5/L5.ipynb · Observing</div>
+      <h1>Tracing = <em>evidence</em> for eval datasets</h1>
+      <div class="concept">
+        <h2>Concept: spans are eval rows waiting to happen</h2>
+        <p><b>OpenInference</b> span kinds: <span class="pill">AGENT</span> one question→answer · <span class="pill">CHAIN</span> router step · <span class="pill">TOOL</span> skill · <span class="pill">LLM</span> model I/O. L7 queries these spans — if you didn't instrument the hop, you can't judge it.</p>
+      </div>
+      <div class="samples">
+        <div class="samples-title">Practical examples</div>
+        <div class="sample-lab">
+          <span class="box-title">Try in L5.ipynb</span>
+          <p class="ex-line">Run the demo question below → open Phoenix project <span class="tag">tracing-agent</span>. Click <span class="tag">execute_sql_query</span>: input = SQL string, output = table. No span there = no SQL eval in L7.</p>
+        </div>
+        <div class="sample-rw">
+          <span class="box-title">Real world</span>
+          <p class="ex-line"><b>Checkout agent:</b> user sees "Payment failed" but trace shows <span class="tag">charge_card</span> succeeded and <span class="tag">send_receipt</span> timed out — without spans you'd blame the wrong step.</p>
+          <p class="ex-line"><b>Legal review bot:</b> final answer cites wrong clause; trace shows <span class="tag">retrieve_section</span> pulled article 4, not 7.</p>
+        </div>
+      </div>
+      <div class="fill">
+        <figure class="diag" style="flex:1.25">
+          <img src="L5/images/spans_agent.png" alt="Phoenix span tree: AgentRun → router_call → tools → LLM" />
+          <figcaption>From L5.ipynb — OpenInference span tree in Phoenix</figcaption>
+        </figure>
+        <div class="col" style="flex:.75">
+          <pre class="code">register_tracer(project_name=<span class="st">"tracing-agent"</span>)
+OpenAIInstrumentor().instrument()</pre>
+          <div class="card">
+            <h3>Takeaway</h3>
+            <p>Count <span class="tag">router_call</span> spans = path length. L9 turns this into a score. Walk Phoenix: AgentRun → router_call → tool → LLM.</p>
+          </div>
+        </div>
+      </div>
+      <div class="ex demo"><b>Demo in notebook:</b> Which stores did the best in 2021?</div>
+    </section>
+
+    <!-- 7 L6–L7 -->
+    <section class="slide" data-title="L6–L7 Span evals">
+      <div class="kicker">Lessons 6–7 · L7/L7.ipynb · Router &amp; skill evals</div>
+      <h1>Forensic eval: <em>query traces → score → log back</em></h1>
+      <div class="concept">
+        <h2>Concept: feedback functions on spans</h2>
+        <p>Run agent on a question battery → <b>SpanQuery</b> filters Phoenix spans → <b>llm_classify</b> (judge) or <b>exec</b> (code) → <b>log_evaluations</b> writes labels onto spans in the UI. Judge wrapped in <span class="tag">suppress_tracing()</span> so grader traffic ≠ agent traffic.</p>
+      </div>
+      <div class="samples">
+        <div class="samples-title">Practical examples</div>
+        <div class="sample-lab">
+          <span class="box-title">Try in L7.ipynb</span>
+          <p class="ex-line"><b>"Create a bar chart showing total sales by store"</b> → Tool Calling Eval: <span class="tag">correct</span> if <span class="tag">generate_visualization</span> chosen. Runnable Code Eval: <span class="tag">exec</span> the returned matplotlib string.</p>
+          <p class="ex-line"><b>"What was total revenue?"</b> → Tool Calling ✓ but SQL Gen ✗ if query sums wrong column — two scores, one run.</p>
+        </div>
+        <div class="sample-rw">
+          <span class="box-title">Real world</span>
+          <p class="ex-line"><b>Insurance claims bot:</b> nightly job runs same <span class="tag">llm_classify</span> on 5% of live traces — did agent call <span class="tag">fetch_policy</span> before <span class="tag">approve_claim</span>?</p>
+          <p class="ex-line"><b>Code assistant:</b> judge labels tool choice; CI separately runs <span class="tag">pytest</span> on generated patch — dual signal like our judge + <span class="tag">exec</span>.</p>
+        </div>
+      </div>
+      <div class="fill">
+        <div class="col" style="flex:.85">
+          <pre class="code">query = SpanQuery().where(<span class="st">"span_kind == 'LLM'"</span>)
+    .select(question=<span class="st">"input.value"</span>, tool_call=<span class="st">"llm.tools"</span>)
+df = px.Client().query_spans(query, project_name=<span class="st">"evaluating-agent"</span>)
+eval_df = llm_classify(data=df, template=TOOL_CALLING_PROMPT_TEMPLATE,
+    rails=[<span class="st">'correct'</span>,<span class="st">'incorrect'</span>], model=eval_model)
+px.Client().log_evaluations(SpanEvaluations(eval_name=<span class="st">"Tool Calling Eval"</span>, ...))</pre>
+          <figure class="diag" style="flex:.55">
+            <img src="L7/images/traces.png" alt="Agent sends traces to observability; eval layer queries and annotates" />
+            <figcaption>From L7.ipynb — trace → query → annotate loop</figcaption>
+          </figure>
+        </div>
+        <figure class="diag" style="flex:1.15">
+          <img src="L7/images/router_skill_eval.png" alt="Router and skill evals mapped to each tool" />
+          <figcaption>From L7.ipynb — which eval judges which hop</figcaption>
+        </figure>
+      </div>
+      <div class="ex demo"><b>Question battery to run:</b> popular SKU · total revenue · best store · bar chart · promo % · avg transaction</div>
+    </section>
+
+    <!-- 8 L8–L9 -->
+    <section class="slide" data-title="L8–L9 Trajectory">
+      <div class="kicker">Lessons 8–9 · L9/L9.ipynb · Trajectory / convergence</div>
+      <h1>Trajectory = <em>path economics</em>, not correctness</h1>
+      <div class="concept">
+        <h2>Concept: convergence score</h2>
+        <p>Same intent, many wordings. A brittle router takes extra hops on paraphrases. <b>Convergence</b> = shortest path in the batch ÷ this run's path length. <span class="tag">1.0</span> = as efficient as the best sibling; <span class="tag">0.5</span> = twice as many messages. Always pair with quality evals — short wrong beats long right.</p>
+      </div>
+      <div class="samples">
+        <div class="samples-title">Practical examples</div>
+        <div class="sample-lab">
+          <span class="box-title">Try in L9.ipynb</span>
+          <p class="ex-line">Upload 17-question dataset → run experiment → <span class="tag">evaluate_path_length</span>. Row scores <span class="tag">0.5</span>? That paraphrase used <b>twice</b> the messages of the best sibling in the batch.</p>
+          <p class="ex-line">Open Phoenix experiment compare view — read <span class="tag">format_message_steps</span> for the slow row vs the fast one.</p>
+        </div>
+        <div class="sample-rw">
+          <span class="box-title">Real world</span>
+          <p class="ex-line"><b>Procurement agent:</b> "Cheapest vendor for 500 laptops" vs "Lowest price supplier, 500 units" — same intent; 8 vs 4 API calls = billing surprise.</p>
+          <p class="ex-line"><b>Clinical triage bot:</b> convergence drop after prompt change flags regression even when answers still "look fine" to clinicians.</p>
+        </div>
+      </div>
+      <div class="fill">
+        <div class="col" style="flex:.75">
+          <pre class="code"><span class="kw">def</span> <span class="fn">run_agent_and_track_path</span>(example):
+    ret = run_agent([{<span class="st">"role"</span>:<span class="st">"user"</span>, <span class="st">"content"</span>: example.input[<span class="st">"question"</span>]}])
+    <span class="kw">return</span> {<span class="st">"path_length"</span>: len(ret), ...}  <span class="cm"># all messages</span>
+
+<span class="kw">def</span> <span class="fn">evaluate_path_length</span>(output):
+    <span class="kw">return</span> optimal_path_length / output[<span class="st">"path_length"</span>]</pre>
+          <div class="card"><h3>Phoenix experiment</h3><p><span class="tag">upload_dataset</span> → <span class="tag">run_experiment</span> → <span class="tag">evaluate_experiment</span> with Convergence Eval</p></div>
+        </div>
+        <figure class="diag" style="flex:1.25">
+          <img src="L9/images/experiment1.png" alt="Dataset → agent task → path length evaluator → convergence score" />
+          <figcaption>From L9.ipynb — paraphrase dataset → convergence score</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 9 L10–L11 -->
+    <section class="slide" data-title="L10–L11 Experiments">
+      <div class="kicker">Lessons 10–11 · L11/L11.ipynb · Structured experiments</div>
+      <h1>Experiments = <em>regression suite</em> for prompt changes</h1>
+      <div class="concept">
+        <h2>Concept: span eval vs experiment</h2>
+        <p><b>L7</b> is forensic — score traces that already happened. <b>L11</b> is scientific — same dataset + evaluators, change one variable (e.g. SQL prompt), compare <span class="tag">Overall Experiment v1</span> vs <span class="tag">v2</span>. Each row has <span class="tag">input</span>, task <span class="tag">output</span>, and <span class="tag">expected</span> golden fields.</p>
+      </div>
+      <div class="samples">
+        <div class="samples-title">Practical examples</div>
+        <div class="sample-lab">
+          <span class="box-title">Try in L11.ipynb</span>
+          <p class="ex-line">Run <span class="tag">Overall Experiment v1</span> → pick failing row → note which evaluator failed (e.g. <span class="tag">evaluate_sql_result</span>).</p>
+          <p class="ex-line"><span class="tag">update_sql_gen_prompt("... Think before you respond.")</span> → v2 → compare SQL scores in Phoenix, not gut feel.</p>
+        </div>
+        <div class="sample-rw">
+          <span class="box-title">Real world</span>
+          <p class="ex-line"><b>Product team:</b> 40 golden support questions in Phoenix dataset — PR that changes router prompt must pass experiment v2 ≥ v1 on tool-calling + sql_result.</p>
+          <p class="ex-line"><b>Fintech:</b> entity_correctness catches "account ending 4521" in answer when user asked about 4529 — clarity alone would pass.</p>
+        </div>
+      </div>
+      <div class="fill">
+        <div class="col" style="flex:.72">
+          <pre class="code">run_experiment(dataset, task=run_agent_task,
+    evaluators=[function_calling_eval, evaluate_sql_result,
+                evaluate_clarity, evaluate_entity_correctness,
+                code_is_runnable],
+    experiment_name=<span class="st">"Overall Experiment v1"</span>)
+
+update_sql_gen_prompt(<span class="st">"""... Think before you respond."""</span>)
+run_experiment(..., experiment_name=<span class="st">"Overall Experiment v2"</span>)</pre>
+          <p class="sub"><span class="tag">process_messages</span> → tool_calls, tool_responses, final_output, path_length</p>
+        </div>
+        <div class="diag-stack" style="flex:1.28">
+          <figure class="diag">
+            <img src="L11/images/experiments.png" alt="Agent v1 vs v2 experiment comparison with evaluators and scores" />
+            <figcaption>From L11.ipynb — v1 vs v2 on same dataset</figcaption>
+          </figure>
+          <figure class="diag">
+            <img src="L11/images/agent_evaluators.png" alt="Evaluators mapped to router and each tool" />
+            <figcaption>From L11.ipynb — five evaluators on each hop</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10 Metric decoder -->
+    <section class="slide" data-title="Metric decoder">
+      <div class="kicker">Metric decoder</div>
+      <h1>Read <em>combinations</em> — one green light lies</h1>
+      <div class="concept">
+        <h2>Concept: each metric is a flashlight in a different room</h2>
+        <p>Don't treat <span class="tag">correct</span> as "the agent is good." Tool calling ≠ SQL quality ≠ clarity ≠ truth. Use the pattern below to find <b>which hop</b> failed and <b>which lever</b> to pull (router prompt vs SQL prompt vs analysis prompt).</p>
+      </div>
+      <div class="samples">
+        <div class="samples-title">Practical examples</div>
+        <div class="sample-lab">
+          <span class="box-title">Walkthrough</span>
+          <p class="ex-line">User asks store <b>1320</b> revenue. Tool Calling ✓ · SQL Gen ✓ · Clarity ✓ · but <span class="tag">sql_result</span> digits match store <b>99</b> → fix lookup/SQL, not prose.</p>
+        </div>
+        <div class="sample-rw">
+          <span class="box-title">Real world</span>
+          <p class="ex-line"><b>Medical FAQ bot:</b> answer reads clearly, cites wrong dosage — clarity ✓, entity/fact eval ✗. <b>Never ship</b> on one green metric.</p>
+        </div>
+      </div>
+      <div class="col" style="flex:1;gap:.45vh">
+        <div class="fail"><b>Wrong tool</b><span>Tool Calling ✗ — fix router / tool descriptions first</span><span class="tag">SYSTEM_PROMPT</span></div>
+        <div class="fail gold-l"><b>Right tool, bad SQL</b><span>Tool Calling ✓ · SQL Gen / sql_result ✗</span><span class="tag">SQL_GENERATION_PROMPT</span></div>
+        <div class="fail blue-l"><b>Right SQL, mushy prose</b><span>SQL ✓ · Clarity ✗ — don't polish lookup</span><span class="tag">analysis</span></div>
+        <div class="fail ok-l"><b>Pretty nonsense</b><span>Clarity ✓ · digits/entities ✗ — need code eval + humans</span><span class="tag">don't ship</span></div>
+      </div>
+      <div class="grid-3" style="flex:.5">
+        <div class="card"><h3>L7 SQL judge</h3><p><b>Intent</b> — would this query answer the ask?</p></div>
+        <div class="card"><h3>L11 sql_result</h3><p><b>Facts</b> — do lookup digits match gold row?</p></div>
+        <div class="card"><h3>L9 convergence</h3><p><b>Cost</b> — hops vs shortest; not correctness</p></div>
+      </div>
+    </section>
+
+    <!-- 11 L12 -->
+    <section class="slide" data-title="L12 Judges">
+      <div class="kicker">Lesson 12 · Improving LLM-as-a-judge</div>
+      <h1>The judge is a model — <em>it also needs eval</em></h1>
+      <div class="concept">
+        <h2>Concept: rails + explanation + dual signal</h2>
+        <p><b>Rails</b> force parseable labels (<span class="tag">correct</span>/<span class="tag">incorrect</span>), not free prose scores. <b>Explanation before LABEL</b> reduces reverse-justification. If the judge is noisy, every experiment is a random number generator — spot-check 20 labels yourself (golden slice).</p>
+      </div>
+      <div class="samples">
+        <div class="samples-title">Practical examples</div>
+        <div class="sample-lab">
+          <span class="box-title">In this repo</span>
+          <p class="ex-line">No <span class="tag">GOOGLE_API_KEY</span> → <span class="tag">MockEvalModel</span> often labels everything <span class="tag">correct</span>. That's expected — teaches eval <em>structure</em>. With live Gemini, spot-check 10 labels in Phoenix explanations.</p>
+        </div>
+        <div class="sample-rw">
+          <span class="box-title">Real world</span>
+          <p class="ex-line"><b>Content moderation:</b> judge says "safe" on subtle policy violation — human golden slice catches it. <b>Recruiting bot:</b> judge marks answer "clear" but omits salary range asked in question.</p>
+        </div>
+      </div>
+      <div class="fill">
+        <div class="col">
+          <pre class="code"><span class="cm"># TOOL_CALLING_PROMPT_TEMPLATE (phoenix_compat.py)</span>
+[Question]: {question}
+[Tool Called]: {tool_call}
+[Tool Definitions]: {tool_definitions}
+→ single word: <span class="st">"correct"</span> or <span class="st">"incorrect"</span>
+
+<span class="cm"># Clarity template — reason first, then:</span>
+EXPLANATION: ...
+LABEL: <span class="st">"clear"</span> or <span class="st">"unclear"</span></pre>
+        </div>
+        <div class="col">
+          <div class="card"><h3>Temperature 0</h3><p><span class="tag">GeminiEvalModel</span> — repeatable labels across reruns</p></div>
+          <div class="card"><h3>suppress_tracing()</h3><p>Judge spans must not appear as agent spans in Phoenix</p></div>
+          <div class="card"><h3>Tight SpanQuery filters</h3><p>Wrong training rows poison agreement — filter SQL spans by prompt substring</p></div>
+          <div class="card"><h3>Dual signal</h3><p>Judge + <span class="tag">exec</span> / digits — never judge alone for shipping</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12 L13 -->
+    <section class="slide" data-title="L13 Monitoring">
+      <div class="kicker">Lesson 13 · Monitoring agents</div>
+      <h1>Offline eval → <em>sampled</em> production loop</h1>
+      <div class="concept">
+        <h2>Concept: same evals, different schedule</h2>
+        <p>L7 queried a batch you just generated. <b>Monitoring</b> runs the same SpanQuery + llm_classify on a <b>sample</b> of live AgentRun spans. Spike in tool-calling errors → alert → new experiment on failing questions. Stable span names (<span class="tag">router_call</span>, <span class="tag">lookup_sales_data</span>) are the contract between app and eval jobs.</p>
+      </div>
+      <div class="samples">
+        <div class="samples-title">Practical examples</div>
+        <div class="sample-lab">
+          <span class="box-title">From labs → prod</span>
+          <p class="ex-line">Same <span class="tag">SpanQuery</span> + <span class="tag">llm_classify</span> from L7, scheduled nightly on project <span class="tag">evaluating-agent</span>. Alert if Tool Calling incorrect rate &gt; 10% over 24h.</p>
+        </div>
+        <div class="sample-rw">
+          <span class="box-title">Real world</span>
+          <p class="ex-line"><b>Retail chatbot:</b> Black Friday spike in unrunnable chart % → on-call checks viz prompt deploy from yesterday. <b>Internal wiki agent:</b> path length drift after embedding model swap → router confused, not retrieval.</p>
+        </div>
+      </div>
+      <div class="flow" style="flex:.45">
+        <div class="node teal">live traces</div><div class="arr">→</div>
+        <div class="node">sample 5–10%</div><div class="arr">→</div>
+        <div class="node gold">L7 evals</div><div class="arr">→</div>
+        <div class="node">dashboard</div><div class="arr">→</div>
+        <div class="node coral">alert → experiment</div>
+      </div>
+      <div class="grid-4" style="flex:1">
+        <div class="card"><h3>Tool-calling %</h3><p>L7 router · spike → descriptions / SYSTEM_PROMPT</p></div>
+        <div class="card"><h3>SQL gen %</h3><p>L7 SQL judge · spike → SQL_GENERATION_PROMPT</p></div>
+        <div class="card"><h3>Unrunnable charts</h3><p><span class="tag">code_is_runnable</span> · spike → chart prompt / fences</p></div>
+        <div class="card"><h3>Path drift</h3><p>L9 convergence on samples · extra hops = cost leak</p></div>
+      </div>
+    </section>
+
+    <!-- 13 Phoenix × Temporal -->
+    <section class="slide" data-title="Phoenix × Temporal">
+      <div class="kicker">Week 5 + Week 7 · Phoenix on Temporal</div>
+      <h1>Temporal: <em>survive</em> · Phoenix: <em>chose well</em></h1>
+      <div class="concept">
+        <h2>Concept: two systems, one pipeline</h2>
+        <p><b>Temporal</b> retries infrastructure failure (timeout, worker down). <b>Phoenix</b> scores intelligence failure (wrong tool, bad SQL). Instrument <b>activities</b>, not the workflow. Join on <span class="tag">workflow_id</span>. Week 5 <span class="tag">critique_draft</span> is judge-as-<b>gate</b>; Phoenix experiments are judge-<b>offline</b>.</p>
+      </div>
+      <div class="samples">
+        <div class="samples-title">Practical examples</div>
+        <div class="sample-lab">
+          <span class="box-title">Plug-in sketch</span>
+          <p class="ex-line">Week 5 <span class="tag">draft_answer</span> activity → wrap with OpenInference + stamp <span class="tag">activity.info().workflow_id</span>. Offline: SpanQuery filter <span class="tag">activity_type == "draft_answer"</span> → same Tool Calling eval as L7.</p>
+        </div>
+        <div class="sample-rw">
+          <span class="box-title">Real world</span>
+          <p class="ex-line"><b>Temporal UI:</b> <span class="tag">flaky_retrieve</span> retried 3× — success. <b>Phoenix:</b> all 3 attempts retrieved wrong doc chunk — infra OK, intelligence bad. You need both dashboards.</p>
+          <p class="ex-line"><b>Gate:</b> <span class="tag">critique_draft</span> fails → redraft activity (W5 L3) — same judge idea, different schedule than Phoenix experiment.</p>
+        </div>
+      </div>
+      <div class="vs" style="flex:.85">
+        <div class="card">
+          <h3>Temporal (W5)</h3>
+          <ul><li>Workflow = deterministic order</li><li>Activities = LLM, DuckDB, HTTP</li><li>Event History: retries, crashes</li></ul>
+          <p class="nb" style="margin-top:.4vh">retrieve_context · draft_answer · critique_draft</p>
+        </div>
+        <div class="vs-mid">workflow_id</div>
+        <div class="card" style="border-color:var(--teal-border)">
+          <h3>Phoenix (W7)</h3>
+          <ul><li>Spans on activities at worker</li><li>Tool args, prompts, judge labels</li><li>Wrong SQL, successful activity</li></ul>
+            <pre class="code" style="margin-top:.4vh;font-size:1.35vh">activity.info().workflow_id
+activity.info().activity_type</pre>
+        </div>
+      </div>
+      <div class="grid-3" style="flex:.55">
+        <div class="card"><h3>Offline judge</h3><p>L7/L11 on trace samples · improve prompts</p></div>
+        <div class="card"><h3>Gate activity</h3><p>critique fails → Temporal redraft activity</p></div>
+        <div class="card" style="background:var(--coral-bg)"><h3>Anti-pattern</h3><p>LLM judge inside workflow — side effects belong in activities</p></div>
+      </div>
+    </section>
+
+    <!-- 14 Close -->
+    <section class="slide" data-title="Close">
+      <div class="kicker">Lesson 14 · Close</div>
+      <h1>Build → trace → score → <em>experiment</em></h1>
+      <div class="concept">
+        <h2>Closing line</h2>
+        <p>Name every hop. Judge the hop you named. Rerun the same questions after one prompt change. On Temporal, that hop is an <span class="tag">activity</span> with a <span class="tag">workflow_id</span>. Not a better vibe — a shorter, labeled path from question → tool → answer.</p>
+      </div>
+      <div class="samples">
+        <div class="samples-title">Practical examples</div>
+        <div class="sample-lab">
+          <span class="box-title">Student takeaway</span>
+          <p class="ex-line">You built: router loop (L3) · span tree (L5) · four span evals (L7) · convergence score (L9) · v1/v2 experiment (L11). Same patterns apply to any tool-using agent.</p>
+        </div>
+        <div class="sample-rw">
+          <span class="box-title">On the job</span>
+          <p class="ex-line">Before changing a prompt in prod: run golden dataset experiment. After deploy: sample traces + monitor tool-calling %. On Temporal: instrument activities, join on <span class="tag">workflow_id</span>.</p>
+        </div>
+      </div>
+      <div class="flow" style="flex:.38">
+        <div class="node teal">L3 build</div><div class="arr">→</div>
+        <div class="node">L5 trace</div><div class="arr">→</div>
+        <div class="node gold">L7 eval</div><div class="arr">→</div>
+        <div class="node coral">L9 path</div><div class="arr">→</div>
+        <div class="node blue">L11 v1/v2</div>
+      </div>
+      <div class="grid-2" style="flex:1">
+        <div class="card">
+          <h3>Live demo order (if short on time)</h3>
+          <ol style="font-size:1.72vh;color:var(--muted);padding-left:1.1em">
+            <li><span class="tag">run_agent</span> loop in L3</li>
+            <li>Phoenix tree: AgentRun → router_call → tool</li>
+            <li>Tool Calling Eval labels on LLM spans</li>
+            <li>Convergence on paraphrases (L9)</li>
+            <li>Experiment v2 after <span class="tag">update_sql_gen_prompt</span></li>
+          </ol>
+        </div>
+        <div class="card">
+          <h3>Common failures</h3>
+          <ul style="font-size:1.68vh">
+            <li>Parquet not found → open notebook from lesson folder</li>
+            <li>Phoenix empty → kernel died; rerun tracer cells</li>
+            <li>All labels correct → mock judge (expected offline)</li>
+            <li>KeyError → <span class="tag">tools[]</span> ≠ <span class="tag">tool_implementations</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </div>
+  </div>
+
+  <footer class="bar">
+    <div class="bar-left">
+      <span>Week 7 · Evaluating AI Agents</span>
+      <div class="zoom-ctrl" title="Presenter zoom for projector">
+        <button type="button" id="zoomOut" aria-label="Zoom out">−</button>
+        <span id="zoomLabel">120%</span>
+        <button type="button" id="zoomIn" aria-label="Zoom in">+</button>
+        <button type="button" id="zoomReset" aria-label="Reset zoom" style="width:auto;padding:0 .5vw;font-size:1.25vh;font-weight:600">Reset</button>
+      </div>
+      <span class="zoom-hint">+ / − / 0 keys</span>
+    </div>
+    <div class="dots" id="dots"></div>
+    <span id="label" class="bar-right"></span>
+  </footer>
+
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Enlarged diagram">
+    <button type="button" class="lightbox-close" id="lightboxClose" aria-label="Close">×</button>
+    <img id="lightboxImg" alt="" />
+    <div class="lightbox-cap" id="lightboxCap"></div>
+  </div>
+
+  <script>
+    const slides = [...document.querySelectorAll(".slide")];
+    const dots = document.getElementById("dots");
+    const label = document.getElementById("label");
+    const progress = document.getElementById("progress");
+    const zoomLabel = document.getElementById("zoomLabel");
+    const ZOOM_KEY = "week7-slide-zoom";
+    const ZOOM_MIN = 0.85;
+    const ZOOM_MAX = 1.75;
+    const ZOOM_STEP = 0.1;
+    const ZOOM_DEFAULT = 1.2;
+    let i = 0;
+    let zoom = ZOOM_DEFAULT;
+
+    slides.forEach((_, n) => {
+      const d = document.createElement("div");
+      d.className = "dot";
+      d.onclick = () => go(n);
+      dots.appendChild(d);
+    });
+
+    function applyZoom() {
+      document.documentElement.style.setProperty("--zoom", zoom);
+      zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
+      try { localStorage.setItem(ZOOM_KEY, String(zoom)); } catch (_) {}
+    }
+
+    function setZoom(next) {
+      zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, next));
+      applyZoom();
+    }
+
+    function loadZoom() {
+      try {
+        const saved = parseFloat(localStorage.getItem(ZOOM_KEY));
+        if (!Number.isNaN(saved) && saved >= ZOOM_MIN && saved <= ZOOM_MAX) zoom = saved;
+      } catch (_) {}
+      applyZoom();
+    }
+
+    document.getElementById("zoomIn").onclick = (e) => { e.stopPropagation(); setZoom(zoom + ZOOM_STEP); };
+    document.getElementById("zoomOut").onclick = (e) => { e.stopPropagation(); setZoom(zoom - ZOOM_STEP); };
+    document.getElementById("zoomReset").onclick = (e) => { e.stopPropagation(); setZoom(ZOOM_DEFAULT); };
+
+    function go(n) {
+      i = (n + slides.length) % slides.length;
+      slides.forEach((s, k) => s.classList.toggle("active", k === i));
+      [...dots.children].forEach((d, k) => d.classList.toggle("on", k === i));
+      label.textContent = `${i + 1} / ${slides.length} · ${slides[i].dataset.title}`;
+      progress.style.width = ((i + 1) / slides.length) * 100 + "%";
+      document.getElementById("viewport").scrollTop = 0;
+    }
+    loadZoom();
+    go(0);
+
+    const lightbox = document.getElementById("lightbox");
+    const lightboxImg = document.getElementById("lightboxImg");
+    const lightboxCap = document.getElementById("lightboxCap");
+
+    function lightboxOpen() {
+      return lightbox.classList.contains("open");
+    }
+    function openLightbox(fig) {
+      const img = fig.querySelector("img");
+      const cap = fig.querySelector("figcaption");
+      lightboxImg.src = img.src;
+      lightboxImg.alt = img.alt || "";
+      lightboxCap.textContent = cap ? cap.textContent : (img.alt || "");
+      lightbox.classList.add("open");
+    }
+    function closeLightbox() {
+      lightbox.classList.remove("open");
+      lightboxImg.removeAttribute("src");
+    }
+
+    document.getElementById("deck").addEventListener("click", (e) => {
+      const fig = e.target.closest("figure.diag");
+      if (fig) { e.stopPropagation(); openLightbox(fig); return; }
+      if (e.target.closest(".dot") || e.target.closest(".zoom-ctrl")) return;
+      go(e.clientX > innerWidth * 0.45 ? i + 1 : i - 1);
+    });
+    lightbox.addEventListener("click", (e) => {
+      if (e.target === lightboxImg) return;
+      closeLightbox();
+    });
+    document.getElementById("lightboxClose").onclick = (e) => { e.stopPropagation(); closeLightbox(); };
+
+    document.addEventListener("keydown", (e) => {
+      if (lightboxOpen()) {
+        if (e.key === "Escape" || e.key === "Enter" || e.key === " ") { e.preventDefault(); closeLightbox(); }
+        return;
+      }
+      if (e.key === "=" || e.key === "+") { e.preventDefault(); setZoom(zoom + ZOOM_STEP); return; }
+      if (e.key === "-" || e.key === "_") { e.preventDefault(); setZoom(zoom - ZOOM_STEP); return; }
+      if (e.key === "0") { e.preventDefault(); setZoom(ZOOM_DEFAULT); return; }
+      if (["ArrowRight", "PageDown", " ", "Enter"].includes(e.key)) { e.preventDefault(); go(i + 1); }
+      if (["ArrowLeft", "PageUp", "Backspace"].includes(e.key)) { e.preventDefault(); go(i - 1); }
+      if (e.key === "Home") go(0);
+      if (e.key === "End") go(slides.length - 1);
+    });
+  </script>
+</body>
+</html>
